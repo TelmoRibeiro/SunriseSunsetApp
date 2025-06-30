@@ -1,11 +1,12 @@
 source "https://rubygems.org"
 
 gem "sinatra"
-gem "sinatra-activerecord"
-gem "sqlite3"
+gem "sinatra-activerecord" 
+gem "activerecord", "~> 7.1"
+gem "activesupport", "~> 7.1"
+gem "sqlite3", "= 2.1.0"
 gem "httparty"
 gem "json"
-
 # @ telmo - a brief search led me to the previous packages... I may need to update/swap them in time!
 
 gem "rackup"
