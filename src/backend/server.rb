@@ -1,6 +1,13 @@
 require 'sinatra'
+require 'sinatra/activerecord'
 require 'json'
+require './models/record'
 # @ telmo - `require` works like the standard `import`
+
+set :database, {
+  adapter: "sqlite3",
+  database: "./database/sunrise.sqlite3"
+}
 
 get '/' do
   content_type :json
