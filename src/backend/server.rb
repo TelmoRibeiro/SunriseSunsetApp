@@ -19,3 +19,4 @@ get '/helloself' do
 end
 
 # @ telmo - get $Path where $Path is the path for the request
+# @ telmo - apprantely, keeping the various requests isolated is more sinatra-idiomatic
