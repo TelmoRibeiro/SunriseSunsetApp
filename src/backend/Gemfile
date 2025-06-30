@@ -1,0 +1,9 @@
+source "https://rubygems.org"
+
+gem "sinatra"
+gem "sinatra-activerecord"
+gem "sqlite3"
+gem "httparty"
+gem "json"
+
+# a brief search led me to the previous packages... I may need to update/swap them in time!
