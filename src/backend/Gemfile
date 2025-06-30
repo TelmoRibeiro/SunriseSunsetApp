@@ -6,4 +6,9 @@ gem "sqlite3"
 gem "httparty"
 gem "json"
 
-# a brief search led me to the previous packages... I may need to update/swap them in time!
+# @ telmo - a brief search led me to the previous packages... I may need to update/swap them in time!
+
+gem "rackup"
+gem "puma"
+
+# @ telmo - additions following error messages -- need to read about it
