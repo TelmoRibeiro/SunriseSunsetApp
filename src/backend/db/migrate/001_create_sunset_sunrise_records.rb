@@ -1,4 +1,4 @@
-class CreateSunsetSunriseContents < ActiveRecord::Migration[7.2]
+class CreateSunsetSunriseRecords < ActiveRecord::Migration[7.2]
   def change
     create_table :sunset_sunrise_records do |t|
       t.string :location
@@ -7,5 +7,5 @@ class CreateSunsetSunriseContents < ActiveRecord::Migration[7.2]
       t.string :sunset
       t.string :golden_hour
     end
-  end 
+  end
 end

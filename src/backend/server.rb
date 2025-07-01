@@ -17,6 +17,12 @@ before do
   response.headers['Access-Control-Allow-Origin'] = '*'
 end
 
+options "*" do
+  response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+  response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+  200
+end
+
 set :database, {
   adapter: "sqlite3",
   database: "./db/sunrise.sqlite3"
