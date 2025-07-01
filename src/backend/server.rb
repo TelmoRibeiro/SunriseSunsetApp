@@ -49,7 +49,7 @@ get '/sun-data' do
   # @ telmo - ranges through dates (inclusive) in an elegant manner...
   # @ telmo - also do |date| ... is essentially date => ... i.e., nameless functions with parameters 
   (start_date..end_date).each do |date|
-    record = Record.find_by(location: location, date: date)
+    record = SunsetSunriseRecords.find_by(location: location, date: date)
 
     unless record
       latitude, longitude = lookup_coordinates(location)
@@ -62,7 +62,7 @@ get '/sun-data' do
         data = response.parsed_response["results"]
         
         # @ telmo - literal strings are not implicitly casted as symbols, though that maybe it could...
-        record = Record.create(
+        record = SunsetSunriseRecords.create(
           location: location,
           date: date,
           sunrise: data["sunrise"],
@@ -83,7 +83,7 @@ get '/sun-data' do
     }
   end
 
-  results.to_json
+  records.to_json
 end
 
 # @ telmo - swap this for a proper API
