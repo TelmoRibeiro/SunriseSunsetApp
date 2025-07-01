@@ -6,6 +6,8 @@ require 'httparty'              # https requests handler -- @ telmo - was expect
 
 require './models/record'       # load the ActiveRecord class
 
+require 'cgi'
+
 set :database, {
   adapter: "sqlite3",
   database: "./db/sunrise.sqlite3"
@@ -86,14 +88,17 @@ get '/sun-data' do
   records.to_json
 end
 
-# @ telmo - swap this for a proper API
 def lookup_coordinates(location)
-  case location.downcase
-  when "lisbon"
-    [38.7169, -9.1399]
-  when "berlin"
-    [52.52, 13.405]
+  # DISCLAIMER - NOT THROUGHLY RESEARCHED API (assagniment is a POC) 
+  api_key = "96a02029caad4082a2f7d9239ad7712e" # this would not be safe outside of a POC
+  url = "https://api.opencagedata.com/geocode/v1/json?q=#{CGI.escape(location)}&key=#{api_key}&limit=1"
+  response = HTTParty.get(url)
+
+  if response.code == 200 && response.parsed_response["results"]&.any?
+    geometry = response.parsed_response["results"][0]["geometry"]
+    [geometry["lat"], geometry["lng"]]
   else
+    puts "geocoding failed for #{location} (#{response.code})"
     [0, 0]
   end
 end
