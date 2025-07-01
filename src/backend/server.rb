@@ -1,5 +1,6 @@
 require 'sinatra'               # lightweight server
 require 'sinatra/activerecord'  # classes as relational records -- @ telmo - cool, figured there could be something like this but did not expected it to be so defined
+require 'sinatra/cross_origin'  # enables communication between different ports
 require 'json'                  # json handler
 require 'date'                  # date handler
 require 'httparty'              # https requests handler -- @ telmo - was expecting something more formal...
@@ -7,6 +8,14 @@ require 'httparty'              # https requests handler -- @ telmo - was expect
 require './models/record'       # load the ActiveRecord class
 
 require 'cgi'                   # .escape safely transforms 'strings' into 'URL elements'
+
+configure do
+  enable :cross_origin
+end
+
+before do
+  response.headers['Access-Control-Allow-Origin'] = '*'
+end
 
 set :database, {
   adapter: "sqlite3",
