@@ -6,7 +6,7 @@ require 'httparty'              # https requests handler -- @ telmo - was expect
 
 require './models/record'       # load the ActiveRecord class
 
-require 'cgi'
+require 'cgi'                   # .escape safely transforms 'strings' into 'URL elements'
 
 set :database, {
   adapter: "sqlite3",
@@ -20,31 +20,9 @@ get '/sun-data' do
   start_date = params[:start_date]
   end_date   = params[:end_date]
  
-  # @ telmo - Ruby makes sure the programmer knows the method returns a boolean by sufixing it with '?', interesting...
-  missing_parameters = []
-  missing_parameters << "location"   if location.nil?
-  missing_parameters << "start_date" if start_date.nil?
-  missing_parameters << "end_date"   if end_date.nil?
-  
-  # @ telmo - 'unless' is elegant but unfamiliar to me
-  unless missing_parameters.empty?
-    status 400
-    return { error: "Missing parameters: #{missing_parameters.join(', ')}" }.to_json
-  end
+  parameters_instantiated(location, start_date, end_date)
 
-  # @ telmo - essentially a try ... catch ... in Ruby
-  begin
-    start_date = Date.parse(start_date)
-    end_date   = Date.parse(end_date)
-    
-    if start_date > end_date
-      status 400
-      return { error: "start_date cannot be after end_date"}.to_json 
-    end
-  rescue ArgumentError
-    status 400
-    return { error: "Unexpected date format." }.to_json
-  end
+  start_date, end_date = parsed_dates(start_date, end_date)
 
   records = []
 
@@ -56,14 +34,10 @@ get '/sun-data' do
     unless record
       latitude, longitude = lookup_coordinates(location)
 
-      # @ telmo - API seems to be working good enough
-      url = "https://api.sunrisesunset.io/json?lat=#{latitude}&lng=#{longitude}&date=#{date}"
-      response = HTTParty.get(url)
+      data = lookup_sunrise_sunset(latitude, longitude, date)
 
-      if response.code == 200 && response.parsed_response["results"]
-        data = response.parsed_response["results"]
-        
-        # @ telmo - literal strings are not implicitly casted as symbols, though that maybe it could...
+      # @ telmo - literal strings are not implicitly casted as symbols, though that maybe it could...
+      if data["sunrise"] && data["sunset"] && data["golden_hour"]
         record = SunsetSunriseRecords.create(
           location: location,
           date: date,
@@ -72,20 +46,65 @@ get '/sun-data' do
           golden_hour: data["golden_hour"]
         )
       else
-        next # @ telmo - unfold this into a proper exception
-      end
+        puts "Incomplete data for #{date}."
+      end   
     end
     
-    records << {
-      location: record.location,
-      date: record.date,
-      sunrise: record.sunrise,
-      sunset: record.sunset,
-      golden_hour: record.golden_hour
-    }
+    if record
+      records << {
+        location: record.location,
+        date: record.date,
+        sunrise: record.sunrise,
+        sunset: record.sunset,
+        golden_hour: record.golden_hour
+      }
+    end 
   end
 
   records.to_json
+end
+
+def parameters_instantiated(location, start_date, end_date)
+  # @ telmo - Ruby makes sure the programmer knows the method returns a boolean by sufixing it with '?', interesting...
+  missing_parameters = []
+  missing_parameters << "location"   if location.nil?
+  missing_parameters << "start_date" if start_date.nil?
+  missing_parameters << "end_date"   if end_date.nil?
+  
+  # @ telmo - 'unless' is elegant but unfamiliar to me
+  unless missing_parameters.empty?
+    halt 400, { error: "Missing parameters: #{missing_parameters.join(', ')}" }.to_json
+  end
+end
+
+def parsed_dates(start_date, end_date)  
+  # @ telmo - essentially a try ... catch ... in Ruby
+  begin
+    parsed_start_date = Date.parse(start_date)
+    parsed_end_date   = Date.parse(end_date)
+
+    if parsed_start_date > parsed_end_date
+      halt 400, { error: "start_date cannot be after end_date"}.to_json 
+    end
+
+  rescue ArgumentError
+    halt 400, { error: "Unexpected date format." }.to_json
+  end
+
+  [parsed_start_date, parsed_end_date]
+end
+
+def lookup_sunrise_sunset(latitude, longitude, date)
+  # DISCLAIMER - NOT THROUGHLY RESEARCHED API (assagniment is a POC)
+  url = "https://api.sunrisesunset.io/json?lat=#{latitude}&lng=#{longitude}&date=#{date}"
+  response = HTTParty.get(url)
+
+  if response.code == 200 && response.parsed_response["results"]
+    data = response.parsed_response["results"]
+  else
+    puts "sunrisesunset failed for #{latitude}@#{longitude} with code [#{response.code}]"
+    {}
+  end
 end
 
 def lookup_coordinates(location)
@@ -98,7 +117,7 @@ def lookup_coordinates(location)
     geometry = response.parsed_response["results"][0]["geometry"]
     [geometry["lat"], geometry["lng"]]
   else
-    puts "geocoding failed for #{location} (#{response.code})"
+    puts "opencagedata failed for #{location} with code [#{response.code}]"
     [0, 0]
   end
 end
