@@ -10,12 +10,5 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_07_01_092249) do
-  create_table "sunset_sunrise_records", force: :cascade do |t|
-    t.string "location"
-    t.date "date"
-    t.string "sunrise"
-    t.string "sunset"
-    t.string "golden_hour"
-  end
+ActiveRecord::Schema[7.2].define(version: 0) do
 end
