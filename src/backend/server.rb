@@ -1,13 +1,14 @@
 require 'sinatra'               # lightweight server
-require 'sinatra/activerecord'  # classes as relational records -- @ telmo - cool, figured there could be something like this but did not expected it to be so defined
+require 'sinatra/activerecord'  # classes as relational records
 require 'sinatra/cross_origin'  # enables communication between different ports
+require 'cgi'                   # .escape safely transforms 'strings' into 'URL elements'
 require 'json'                  # json handler
 require 'date'                  # date handler
-require 'httparty'              # https requests handler -- @ telmo - was expecting something more formal...
+require 'httparty'              # https requests handler
 
 require './models/record'       # load the ActiveRecord class
 
-require 'cgi'                   # .escape safely transforms 'strings' into 'URL elements'
+
 
 configure do
   enable :cross_origin
@@ -23,10 +24,12 @@ options "*" do
   200
 end
 
+
 set :database, {
   adapter: "sqlite3",
   database: "./db/sunrise.sqlite3"
 }
+
 
 get '/sun-data' do
   content_type :json
@@ -35,14 +38,26 @@ get '/sun-data' do
   start_date = params[:start_date]
   end_date   = params[:end_date]
  
-  parameters_instantiated(location, start_date, end_date)
+  missing_parameters(
+    location:   location,
+    start_date: start_date,
+    end_date:   end_date
+  )
 
-  start_date, end_date = parsed_dates(start_date, end_date)
+  begin
+    start_date = Date.parse(start_date)
+    end_date   = Date.parse(end_date)
+
+    if start_date > end_date
+      halt 400, { error: "start_date cannot be after end_date"}.to_json
+    end
+
+  rescue ArgumentError
+    halt 400, { error: "Unexpected date format." }.to_json
+  end
 
   records = []
-
-  # @ telmo - ranges through dates (inclusive) in an elegant manner...
-  # @ telmo - also do |date| ... is essentially date => ... i.e., nameless functions with parameters 
+ 
   (start_date..end_date).each do |date|
     record = SunsetSunriseRecords.find_by(location: location.downcase, date: date)
 
@@ -51,62 +66,37 @@ get '/sun-data' do
 
       data = lookup_sunrise_sunset(latitude, longitude, date)
 
-      # @ telmo - literal strings are not implicitly casted as symbols, though that maybe it could...
-      if data["sunrise"] && data["sunset"] && data["golden_hour"]
-        record = SunsetSunriseRecords.create(
-          location: location.downcase,
-          date: date,
-          sunrise: data["sunrise"],
-          sunset: data["sunset"],
-          golden_hour: data["golden_hour"]
-        )
-      else
-        puts "Incomplete data for #{date}."
-      end   
+      missing_parameters(
+        sunrise: data["sunrise"],
+        sunset:  data["sunset"],
+        golden_hour: data["golden_hour"]
+      )
+
+      record = SunsetSunriseRecords.create(
+        location: location.downcase,
+        date: date,
+        sunrise: data["sunrise"],
+        sunset: data["sunset"],
+        golden_hour: data["golden_hour"]
+      )
     end
-    
-    if record
-      records << {
-        location: record.location,
-        date: record.date,
-        sunrise: record.sunrise,
-        sunset: record.sunset,
-        golden_hour: record.golden_hour
-      }
-    end 
+  
+    records << record
   end
 
   records.to_json
 end
 
-def parameters_instantiated(location, start_date, end_date)
-  # @ telmo - Ruby makes sure the programmer knows the method returns a boolean by sufixing it with '?', interesting...
+def missing_parameters(labeled_parameters)
   missing_parameters = []
-  missing_parameters << "location"   if location.nil?
-  missing_parameters << "start_date" if start_date.nil?
-  missing_parameters << "end_date"   if end_date.nil?
-  
-  # @ telmo - 'unless' is elegant but unfamiliar to me
+
+  labeled_parameters.each do |label, parameter|
+    missing_parameters << label if parameter.nil? || parameter.strip.empty?
+  end
+
   unless missing_parameters.empty?
     halt 400, { error: "Missing parameters: #{missing_parameters.join(', ')}" }.to_json
   end
-end
-
-def parsed_dates(start_date, end_date)  
-  # @ telmo - essentially a try ... catch ... in Ruby
-  begin
-    parsed_start_date = Date.parse(start_date)
-    parsed_end_date   = Date.parse(end_date)
-
-    if parsed_start_date > parsed_end_date
-      halt 400, { error: "start_date cannot be after end_date"}.to_json 
-    end
-
-  rescue ArgumentError
-    halt 400, { error: "Unexpected date format." }.to_json
-  end
-
-  [parsed_start_date, parsed_end_date]
 end
 
 def lookup_sunrise_sunset(latitude, longitude, date)
@@ -114,11 +104,10 @@ def lookup_sunrise_sunset(latitude, longitude, date)
   url = "https://api.sunrisesunset.io/json?lat=#{latitude}&lng=#{longitude}&date=#{date}"
   response = HTTParty.get(url)
 
-  if response.code == 200 && response.parsed_response["results"]
+  if response.code == 200 && response.parsed_response["results"]&.any?
     data = response.parsed_response["results"]
   else
-    puts "sunrisesunset failed for #{latitude}@#{longitude} with code [#{response.code}]"
-    {}
+    halt 400, { error: "SunriseSunset could not resolve the times for [#{latitude}@#{longitude}]" }.to_json
   end
 end
 
@@ -132,7 +121,6 @@ def lookup_coordinates(location)
     geometry = response.parsed_response["results"][0]["geometry"]
     [geometry["lat"], geometry["lng"]]
   else
-    puts "opencagedata failed for #{location} with code [#{response.code}]"
-    [0, 0]
+    halt 400, { error: "OpenCageData could not resolve the coordinates for [#{location}]" }.to_json
   end
 end

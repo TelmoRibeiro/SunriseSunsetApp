@@ -16,8 +16,14 @@ function App() {
         `http://localhost:4567/sun-data?location=${encodeURIComponent(location)}&start_date=${startDate}&end_date=${endDate}`
       );
       if (!response.ok) {
-        const errorBody = await response.json();
-        throw new Error(errorBody.error || "Request failed");
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const errorBody = await response.json();
+          throw new Error(errorBody.error || "Request failed with status " + response.status);
+        } else {
+          const text = await response.text();
+          throw new Error("Server error: " + text);
+        }
       }
       const data = await response.json();
       setRecords(data);
