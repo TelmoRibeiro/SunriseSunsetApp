@@ -67,9 +67,12 @@ get '/sun-data' do
       data = lookup_sunrise_sunset(latitude, longitude, date)
 
       missing_parameters(
-        sunrise: data["sunrise"],
-        sunset:  data["sunset"],
-        golden_hour: data["golden_hour"]
+        {  
+          sunrise: data["sunrise"],
+          sunset:  data["sunset"],
+          golden_hour: data["golden_hour"]
+        },
+        "SunriseSunset could not resolve the following parameteres"
       )
 
       record = SunsetSunriseRecords.create(
@@ -87,7 +90,7 @@ get '/sun-data' do
   records.to_json
 end
 
-def missing_parameters(labeled_parameters)
+def missing_parameters(labeled_parameters, error_prefix = "Missing parameters")
   missing_parameters = []
 
   labeled_parameters.each do |label, parameter|
@@ -95,7 +98,7 @@ def missing_parameters(labeled_parameters)
   end
 
   unless missing_parameters.empty?
-    halt 400, { error: "Missing parameters: #{missing_parameters.join(', ')}" }.to_json
+    halt 400, { error: "#{error_prefix}: #{missing_parameters.join(', ')}" }.to_json
   end
 end
 
