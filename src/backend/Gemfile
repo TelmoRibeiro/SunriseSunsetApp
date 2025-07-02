@@ -8,13 +8,6 @@ gem "activesupport", "~> 7.1"
 gem "sqlite3", "= 2.1.0"
 gem "httparty"
 gem "json"
-# @ telmo - a brief search led me to the previous packages... I may need to update/swap them in time!
-
 gem "rackup"
 gem "puma"
-
-# @ telmo - additions following error messages -- need to read about it
-
 gem "rake"
-
-# @ telmo - additions following error messages
