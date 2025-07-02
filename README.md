@@ -13,6 +13,7 @@ This document describes how to run the artifact:
 This module contains all backend-related files, including the `Gemfile`, `Rakefile`, database, and server code.
 
 2. Run:
+
 ```bash
 ruby server.rb
 ```
@@ -29,6 +30,7 @@ Replace `$1`, `$2`, and `$3` with the corresponding parameter values.
 This module contains all frontend-related files, including **HTML**, **CSS**, **JavaScript**, and **React**-specific components.
 
 2. To run in *development mode* (auto-reloading):
+
 ```bash
 npm run dev
 ```
