@@ -8,10 +8,12 @@ function App() {
   const [endDate,   setEndDate]   = useState("");
   const [records,   setRecords]   = useState([]);
   const [error,     setError]     = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
     try {
       const parameters = new URLSearchParams({ location: location, start_date: startDate, end_date: endDate });
       const response = await fetch(`http://localhost:4567/sun-data?${parameters}`);
@@ -24,6 +26,8 @@ function App() {
     } catch (err) {
       setError(err.message);
       setRecords([]);  
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -78,12 +82,14 @@ function App() {
         <button type='submit'>Get Data</button>
       </form>
 
-      {error && <p style={{ color: "red"}}>{error}</p>}
+      {isLoading && <p style={{ color: 'white' }}>'Loading...'</p>}
+
+      {error && <p style={{ color: 'red' }}>{error}</p>}
 
       {records.length > 0 && (
         <>
           <h2>Table</h2>
-          <table border='1' cellPadding='8'>
+          <table border='2' cellPadding='2' width='50%'>
             <thead>
               <tr>
                 <th>Location</th>
@@ -107,27 +113,31 @@ function App() {
           </table>
         
           <h2> Chart</h2>
-          <ResponsiveContainer width='100%' height={300}>
-            <LineChart
-              data={processData}
-              margin={{ top: 10, right: 30, left: 60, bottom: 10 }}  
-            >
-              <CartesianGrid stroke='#ccc' />
-              <XAxis dataKey='date' interval={0} /> // without interval the second to last line disappears
-              <YAxis
-                domain={[0, 86399]}
-                ticks={[0, 21600, 43200, 64800, 86399]}
-                tickFormatter={formatTime}
-              />
-              <Tooltip
-                formatter={formatTime}
-              />
-              <Legend />
-              <Line type='monotone' dataKey='sunrise'     stroke='#1E90FF' name='Sunrise' />
-              <Line type='monotone' dataKey='sunset'      stroke='#FF4500' name='Sunset'  />
-              <Line type='monotone' dataKey='golden_hour' stroke='#FFD700' name='Golden Hour' />
-            </LineChart>
-          </ResponsiveContainer>
+          <div style={{overflow: 'auto' }}>
+            <div style={{ width: `${records.length * 80}px`, minWidth: `1000px` }}>
+              <ResponsiveContainer width='100%' height={400}>
+                <LineChart
+                  data={processData}
+                  margin={{ top: 10, right: 60, left: 60, bottom: 10 }}  
+                >
+                  <CartesianGrid stroke='#ccc' />
+                  <XAxis dataKey='date' interval={0} /> // without interval the second to last line disappears
+                  <YAxis
+                    domain={[0, 86399]}
+                    ticks={[0, 21600, 43200, 64800, 86399]}
+                    tickFormatter={formatTime}
+                  />
+                  <Tooltip
+                    formatter={formatTime}
+                  />
+                  <Legend />
+                  <Line type='monotone' dataKey='sunrise'     stroke='#1E90FF' name='Sunrise' />
+                  <Line type='monotone' dataKey='sunset'      stroke='#FF4500' name='Sunset'  />
+                  <Line type='monotone' dataKey='golden_hour' stroke='#FFD700' name='Golden Hour' />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </>
       )}
     </div>
