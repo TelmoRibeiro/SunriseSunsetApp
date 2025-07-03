@@ -14,8 +14,15 @@ configure do
   enable :cross_origin
 end
 
+ALLOWED_ORIGINS = ['http://localhost:5173']
+
 before do
-  response.headers['Access-Control-Allow-Origin'] = '*'
+  origin = request.env['HTTP_ORIGIN']
+  if ALLOWED_ORIGINS.include?(origin)
+    response.headers['Access-Control-Allow-Origin'] = origin
+  else
+    halt 403, 'CORS Forbidden'
+  end
 end
 
 options "*" do
