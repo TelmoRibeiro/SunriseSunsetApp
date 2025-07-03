@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
 
 function App() {
   const [location,  setLocation]  = useState("");
@@ -7,40 +9,56 @@ function App() {
   const [records,   setRecords]   = useState([]);
   const [error,     setError]     = useState("");
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setError("");
-
     try {
-      const response = await fetch(
-        `http://localhost:4567/sun-data?location=${encodeURIComponent(location)}&start_date=${startDate}&end_date=${endDate}`
-      );
+      const parameters = new URLSearchParams({ location: location, start_date: startDate, end_date: endDate });
+      const response = await fetch(`http://localhost:4567/sun-data?${parameters}`);
       if (!response.ok) {
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          const errorBody = await response.json();
-          throw new Error(errorBody.error || "Request failed with status " + response.status);
-        } else {
-          const text = await response.text();
-          throw new Error("Server error: " + text);
-        }
+        const errorMessage = await response.json();
+        throw new Error(errorMessage.error || 'Could not resolve the error message' + response.status);
       }
       const data = await response.json();
       setRecords(data);
     } catch (err) {
       setError(err.message);
-      setRecords([]);
+      setRecords([]);  
     }
   };
 
+  const processData = records.map(record => {
+    const toSeconds = timeString => {
+      const [time, period]               = timeString.trim().split(' ');
+      const [rawHours, minutes, seconds] = time.split(':').map(Number);
+      let hours = rawHours % 12;
+      if (period.toUpperCase() == 'PM') hours += 12;
+      return hours * 3600 + minutes * 60 + seconds;
+    };
+
+    return {
+      date:        record.date,
+      sunrise:     toSeconds(record.sunrise),
+      sunset:      toSeconds(record.sunset),
+      golden_hour: toSeconds(record.golden_hour),
+    };
+  });
+
+  const formatTime = (value) => {
+    const hours   = Math.floor(value / 3600).toString().padStart(2, '0');
+    const minutes = Math.floor(value % 3600 / 60).toString().padStart(2, '0');
+    const seconds = (value % 60).toString().padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  }
+
   return (
-    <div style={{ padding: "2rem", fontFamily: "Arial, sans-serif"}}>
+    <div style={{ padding: '2rem', fontFamily: 'Arial' }}>
       <h1>Sunrise & Sunset App</h1>
 
-      <form onSubmit={handleSubmit} style={{ marginBottom: "1rem"}}>
+      <form onSubmit={handleSubmit} style={{ marginBottom: '1rem'}}>
         <input
           type='text'
-          placeholder='placeholder'
+          placeholder='location (e.g., Lisbon)'
           value={location}
           onChange={(e) => setLocation(e.target.value)}
           required
@@ -63,28 +81,54 @@ function App() {
       {error && <p style={{ color: "red"}}>{error}</p>}
 
       {records.length > 0 && (
-        <table border="1" cellPadding="6">
-          <thead>
-            <tr>
-              <th>Location</th>
-              <th>Date</th>
-              <th>Sunrise</th>
-              <th>Sunset</th>
-              <th>Golden Hour</th>
-            </tr>
-          </thead>
-          <tbody>
-            {records.map((record, index) => (
-              <tr key={index}>
-                <td>{record.location}</td>
-                <td>{record.date}</td>
-                <td>{record.sunrise}</td>
-                <td>{record.sunset}</td>
-                <td>{record.golden_hour}</td>
+        <>
+          <h2>Table</h2>
+          <table border='1' cellPadding='8'>
+            <thead>
+              <tr>
+                <th>Location</th>
+                <th>Date</th>
+                <th>Sunrise</th>
+                <th>Sunset</th>
+                <th>Golden Hour</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {records.map((record, index) => (
+                <tr key={index}>
+                  <td>{record.location}</td>
+                  <td>{record.date}</td>
+                  <td>{record.sunrise}</td>
+                  <td>{record.sunset}</td>
+                  <td>{record.golden_hour}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        
+          <h2> Chart</h2>
+          <ResponsiveContainer width='100%' height={300}>
+            <LineChart
+              data={processData}
+              margin={{ top: 10, right: 30, left: 60, bottom: 10 }}  
+            >
+              <CartesianGrid stroke='#ccc' />
+              <XAxis dataKey='date' interval={0} /> // without interval the second to last line disappears
+              <YAxis
+                domain={[0, 86399]}
+                ticks={[0, 21600, 43200, 64800, 86399]}
+                tickFormatter={formatTime}
+              />
+              <Tooltip
+                formatter={formatTime}
+              />
+              <Legend />
+              <Line type='monotone' dataKey='sunrise'     stroke='#1E90FF' name='Sunrise' />
+              <Line type='monotone' dataKey='sunset'      stroke='#FF4500' name='Sunset'  />
+              <Line type='monotone' dataKey='golden_hour' stroke='#FFD700' name='Golden Hour' />
+            </LineChart>
+          </ResponsiveContainer>
+        </>
       )}
     </div>
   );
