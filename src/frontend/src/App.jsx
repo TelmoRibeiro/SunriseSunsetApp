@@ -25,7 +25,7 @@ function App() {
       setRecords(data);
     } catch (err) {
       setError(err.message);
-      setRecords([]);  
+      setRecords([]);
     } finally {
       setIsLoading(false);
     }
@@ -41,6 +41,9 @@ function App() {
     };
 
     return {
+      latitude:    record.latitude,
+      longitude:   record.longitude,
+      location:    record.location,
       date:        record.date,
       sunrise:     toSeconds(record.sunrise),
       sunset:      toSeconds(record.sunset),
@@ -113,7 +116,7 @@ function App() {
           </table>
         
           <h2> Chart</h2>
-          <div style={{overflow: 'auto' }}>
+          <div style={{overflow: 'auto', overflowY: 'hidden' }}>
             <div style={{ width: `${records.length * 80}px`, minWidth: `1000px` }}>
               <ResponsiveContainer width='100%' height={400}>
                 <LineChart
