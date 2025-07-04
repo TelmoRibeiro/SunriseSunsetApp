@@ -18,11 +18,8 @@ ALLOWED_ORIGINS = ["http://localhost:5173"]
 
 before do
   origin = request.env["HTTP_ORIGIN"]
-  if ALLOWED_ORIGINS.include?(origin)
-    response.headers["Access-Control-Allow-Origin"] = origin
-  else
-    halt 403, "CORS Forbidden"
-  end
+  halt 404 , "CORS Forbidden" unless ALLOWED_ORIGINS.include?(origin)
+  response.headers["Access-Control-Allow-Origin"] = origin
 end
 
 options "*" do
@@ -33,7 +30,7 @@ end
 
 set :database, {
   adapter: "sqlite3",
-  database: "./db/sunrise.sqlite3"
+  database: "./db/development.sqlite3"
 }
 
 
@@ -63,13 +60,13 @@ get "/sun-data" do
   end
 
   records = []
- 
+
+  latitude, longitude = lookup_coordinates(location)
+
   (start_date..end_date).each do |date|
-    record = SunsetSunriseRecords.find_by(location: location.downcase, date: date)
+    record = SunDataRecord.find_by(latitude: latitude, longitude: longitude, date: date)
 
     unless record
-      latitude, longitude = lookup_coordinates(location)
-
       data = lookup_sunrise_sunset(latitude, longitude, date)
 
       missing_parameters(
@@ -78,14 +75,15 @@ get "/sun-data" do
           sunset:  data["sunset"],
           golden_hour: data["golden_hour"]
         },
-        "SunriseSunset could not resolve the following parameteres"
+        "SunriseSunset could not resolve the following parameters"
       )
 
-      record = SunsetSunriseRecords.create(
-        location: location.downcase,
-        date: date,
-        sunrise: data["sunrise"],
-        sunset: data["sunset"],
+      record = SunDataRecord.create(
+        latitude:    latitude,
+        longitude:   longitude,
+        date:        date,
+        sunrise:     data["sunrise"],
+        sunset:      data["sunset"],
         golden_hour: data["golden_hour"]
       )
     end
@@ -100,7 +98,7 @@ def missing_parameters(labeled_parameters, error_prefix = "Missing parameters")
   missing_parameters = []
 
   labeled_parameters.each do |label, parameter|
-    missing_parameters << label if parameter.nil? || parameter.strip.empty?
+    missing_parameters << label if parameter.nil? || parameter.to_s.strip.empty?
   end
 
   unless missing_parameters.empty?
@@ -109,26 +107,26 @@ def missing_parameters(labeled_parameters, error_prefix = "Missing parameters")
 end
 
 def lookup_sunrise_sunset(latitude, longitude, date)
-  # DISCLAIMER - NOT THROUGHLY RESEARCHED API (assagniment is a POC)
+  # DISCLAIMER - NOT THROUGHLY RESEARCHED API (assignment is a POC)
   url = "https://api.sunrisesunset.io/json?lat=#{latitude}&lng=#{longitude}&date=#{date}"
   response = HTTParty.get(url)
 
   if response.code == 200 && response.parsed_response["results"]&.any?
-    data = response.parsed_response["results"]
+    return response.parsed_response["results"]
   else
     halt 400, { error: "SunriseSunset could not resolve the times for [#{latitude}@#{longitude}]" }.to_json
   end
 end
 
 def lookup_coordinates(location)
-  # DISCLAIMER - NOT THROUGHLY RESEARCHED API (assagniment is a POC) 
+  # DISCLAIMER - NOT THROUGHLY RESEARCHED API (assignment is a POC) 
   api_key = "96a02029caad4082a2f7d9239ad7712e" # this would not be safe outside of a POC
   url = "https://api.opencagedata.com/geocode/v1/json?q=#{CGI.escape(location)}&key=#{api_key}&limit=1"
   response = HTTParty.get(url)
 
   if response.code == 200 && response.parsed_response["results"]&.any?
     geometry = response.parsed_response["results"][0]["geometry"]
-    [geometry["lat"], geometry["lng"]]
+    return [geometry["lat"], geometry["lng"]]
   else
     halt 400, { error: "OpenCageData could not resolve the coordinates for [#{location}]" }.to_json
   end

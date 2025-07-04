@@ -11,11 +11,14 @@
 # It's strongly recommended that you check this file into your version control system.
 
 ActiveRecord::Schema[7.2].define(version: 1) do
-  create_table "sunset_sunrise_records", force: :cascade do |t|
-    t.string "location"
+  create_table "sun_data_records", force: :cascade do |t|
+    t.float "latitude"
+    t.float "longitude"
     t.date "date"
-    t.string "sunrise"
-    t.string "sunset"
-    t.string "golden_hour"
+    t.time "sunrise"
+    t.time "sunset"
+    t.time "golden_hour"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
   end
 end
