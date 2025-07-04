@@ -67,39 +67,41 @@ get "/sun-data" do
   existing_dates   = existing_records.pluck(:date)
   missing_dates    = (all_dates - existing_dates).sort!
 
-  missing_records = lookup_sunrise_sunset(latitude, longitude, missing_dates.first, missing_dates.last)
   new_records = []
 
-  missing_dates_set = missing_dates.to_set
+  unless missing_dates.empty?
+    missing_records   = lookup_sunrise_sunset(latitude, longitude, missing_dates.first, missing_dates.last)
+    missing_dates_set = missing_dates.to_set
+  
+    missing_records.each do |record|
+      
+      record_date = Date.parse(record["date"]) rescue nil
+      next unless missing_dates_set.include?(record_date)
 
-  missing_records.each do |record|
-    
-    record_date = Date.parse(record["date"]) rescue nil
-    next unless missing_dates_set.include?(record_date)
+      missing_parameters(
+        {  
+          sunrise:     record["sunrise"],
+          sunset:      record["sunset"],
+          golden_hour: record["golden_hour"]
+        },
+        "SunriseSunset could not resolve the following parameters for [#{record["date"]}]"
+      )
 
-    missing_parameters(
-      {  
+      new_record = SunDataRecord.create(
+        latitude:    latitude,
+        longitude:   longitude,
+        location:    location,
+        date:        record["date"],
         sunrise:     record["sunrise"],
         sunset:      record["sunset"],
         golden_hour: record["golden_hour"]
-      },
-      "SunriseSunset could not resolve the following parameters for [#{record["date"]}]"
-    )
+      )
 
-    new_record = SunDataRecord.create(
-      latitude:    latitude,
-      longitude:   longitude,
-      location:    location,
-      date:        record["date"],
-      sunrise:     record["sunrise"],
-      sunset:      record["sunset"],
-      golden_hour: record["golden_hour"]
-    )
+      new_records << new_record
+    end
+  end
 
-    new_records << new_record
-  end 
-  
-  return (existing_records + new_records).map{ |record| format_record(record) }.to_json
+  return (existing_records + new_records).uniq { |record| record.date }.map{ |record| format_record(record) }.to_json
 end
 
 def missing_parameters(labeled_parameters, error_prefix = "Missing parameters")
