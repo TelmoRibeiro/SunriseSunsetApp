@@ -34,6 +34,7 @@ set :database, {
 }
 
 
+
 get "/sun-data" do
   content_type :json
 
@@ -59,39 +60,45 @@ get "/sun-data" do
     halt 400, { error: "Unexpected date format." }.to_json
   end
 
-  records = []
-
   latitude, longitude = lookup_coordinates(location)
 
-  (start_date..end_date).each do |date|
-    record = SunDataRecord.find_by(latitude: latitude, longitude: longitude, date: date)
+  all_dates = (start_date..end_date).to_a
+  existing_records = SunDataRecord.where(latitude: latitude, longitude: longitude, date: start_date..end_date)
+  existing_dates   = existing_records.pluck(:date)
+  missing_dates  = (all_dates - existing_dates).sort!
 
-    unless record
-      data = lookup_sunrise_sunset(latitude, longitude, date)
+  return existing_records.to_json if missing_dates.empty?
 
-      missing_parameters(
-        {  
-          sunrise: data["sunrise"],
-          sunset:  data["sunset"],
-          golden_hour: data["golden_hour"]
-        },
-        "SunriseSunset could not resolve the following parameters"
-      )
+  missing_records = lookup_sunrise_sunset(latitude, longitude, missing_dates.first, missing_dates.last)
+  new_records = []
 
-      record = SunDataRecord.create(
-        latitude:    latitude,
-        longitude:   longitude,
-        date:        date,
-        sunrise:     data["sunrise"],
-        sunset:      data["sunset"],
-        golden_hour: data["golden_hour"]
-      )
-    end
+  missing_records.each do |record|
+    missing_dates_set = missing_dates.to_set
+    record_date = Date.parse(record["date"]) rescue nil
+    next unless missing_dates_set.include?(record_date)
+
+    missing_parameters(
+      {  
+        sunrise:     record["sunrise"],
+        sunset:      record["sunset"],
+        golden_hour: record["golden_hour"]
+      },
+      "SunriseSunset could not resolve the following parameters for [#{record["date"]}]"
+    )
+
+    new_record = SunDataRecord.create(
+      latitude:    latitude,
+      longitude:   longitude,
+      date:        record["date"],
+      sunrise:     record["sunrise"],
+      sunset:      record["sunset"],
+      golden_hour: record["golden_hour"]
+    )
+
+    new_records << new_record
+  end 
   
-    records << record
-  end
-
-  records.to_json
+  (existing_records + new_records).to_json 
 end
 
 def missing_parameters(labeled_parameters, error_prefix = "Missing parameters")
@@ -106,18 +113,6 @@ def missing_parameters(labeled_parameters, error_prefix = "Missing parameters")
   end
 end
 
-def lookup_sunrise_sunset(latitude, longitude, date)
-  # DISCLAIMER - NOT THROUGHLY RESEARCHED API (assignment is a POC)
-  url = "https://api.sunrisesunset.io/json?lat=#{latitude}&lng=#{longitude}&date=#{date}"
-  response = HTTParty.get(url)
-
-  if response.code == 200 && response.parsed_response["results"]&.any?
-    return response.parsed_response["results"]
-  else
-    halt 400, { error: "SunriseSunset could not resolve the times for [#{latitude}@#{longitude}]" }.to_json
-  end
-end
-
 def lookup_coordinates(location)
   # DISCLAIMER - NOT THROUGHLY RESEARCHED API (assignment is a POC) 
   api_key = "96a02029caad4082a2f7d9239ad7712e" # this would not be safe outside of a POC
@@ -129,5 +124,17 @@ def lookup_coordinates(location)
     return [geometry["lat"], geometry["lng"]]
   else
     halt 400, { error: "OpenCageData could not resolve the coordinates for [#{location}]" }.to_json
+  end
+end
+
+def lookup_sunrise_sunset(latitude, longitude, start_date, end_date)
+  # DISCLAIMER - NOT THROUGHLY RESEARCHED API (assignment is a POC)
+  url = "https://api.sunrisesunset.io/json?lat=#{latitude}&lng=#{longitude}&start_date=#{start_date}&end_date=#{end_date}"
+  response = HTTParty.get(url)
+
+  if response.code == 200 && response.parsed_response["results"]&.any?
+    return response.parsed_response["results"]
+  else
+    halt 400, { error: "SunriseSunset could not resolve the times for [#{latitude}@#{longitude}]" }.to_json
   end
 end
