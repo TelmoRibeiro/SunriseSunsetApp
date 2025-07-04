@@ -1,12 +1,12 @@
-require 'sinatra'               # lightweight server
-require 'sinatra/activerecord'  # classes as relational records
-require 'sinatra/cross_origin'  # enables communication between different ports
-require 'cgi'                   # .escape safely transforms 'strings' into 'URL elements'
-require 'json'                  # json handler
-require 'date'                  # date handler
-require 'httparty'              # https requests handler
+require "sinatra"               # lightweight server
+require "sinatra/activerecord"  # classes as relational records
+require "sinatra/cross_origin"  # enables communication between different ports
+require "cgi"                   # .escape safely transforms 'strings' into 'URL elements'
+require "json"                  # json handler
+require "date"                  # date handler
+require "httparty"              # https requests handler
 
-require './models/record'       # load the ActiveRecord class
+require "./models/record"       # load the ActiveRecord class
 
 
 
@@ -14,20 +14,19 @@ configure do
   enable :cross_origin
 end
 
-ALLOWED_ORIGINS = ['http://localhost:5173']
+ALLOWED_ORIGINS = ["http://localhost:5173"]
 
 before do
-  origin = request.env['HTTP_ORIGIN']
+  origin = request.env["HTTP_ORIGIN"]
   if ALLOWED_ORIGINS.include?(origin)
-    response.headers['Access-Control-Allow-Origin'] = origin
+    response.headers["Access-Control-Allow-Origin"] = origin
   else
-    halt 403, 'CORS Forbidden'
+    halt 403, "CORS Forbidden"
   end
 end
 
 options "*" do
-  response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-  response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+  response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
   200
 end
 
@@ -38,7 +37,7 @@ set :database, {
 }
 
 
-get '/sun-data' do
+get "/sun-data" do
   content_type :json
 
   location   = params[:location]
